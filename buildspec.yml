@@ -1,0 +1,17 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 749660959666.dkr.ecr.us-east-2.amazonaws.com
+  build:
+    commands:
+      - docker build -t springboot-docker-ecs .
+      - docker tag springboot-docker-ecs:latest 749660959666.dkr.ecr.us-east-2.amazonaws.com/springboot-docker-ecs:latest
+  post_build:
+    commands:
+      - docker push 749660959666.dkr.ecr.us-east-2.amazonaws.com/springboot-docker-ecs:latest
+      - printf '[{"name":springboot-docker-ecs,"imageUri":"%s"}]' 
+        749660959666.dkr.ecr.us-east-2.amazonaws.com/springboot-docker-ecs:latest > imagedefinitions.json
+artifacts:
+  files: imagedefinitions.json
