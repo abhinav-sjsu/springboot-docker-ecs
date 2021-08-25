@@ -6,7 +6,7 @@ phases:
       - aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 749660959666.dkr.ecr.us-east-2.amazonaws.com
   build:
     commands:
-      - docker build -t springboot-docker-ecs .
+      - docker build -t springboot-docker-ecs:latest .
       - docker tag springboot-docker-ecs:latest 749660959666.dkr.ecr.us-east-2.amazonaws.com/springboot-docker-ecs:latest
   post_build:
     commands:
