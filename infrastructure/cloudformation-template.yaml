@@ -38,7 +38,7 @@ Parameters:
       your container instances. If you specify a VPC ID, you must specify a list of
       existing subnets in that VPC. If you do not specify a VPC ID, a new VPC is created
       with atleast 1 subnet.
-    Default: ''
+    Default: 'vpc-0cc93cdc087959cf8'
     ConstraintDescription: >
       VPC Id must begin with 'vpc-' or leave blank to have a
       new VPC created
@@ -47,29 +47,29 @@ Parameters:
     Description: >
       Optional - Specifies the Comma separated list of existing VPC Subnet
       Ids where ECS instances will run
-    Default: ''
+    Default: 'subnet-0b809384b6480676b,subnet-0fcef7ea1e20a55c6,subnet-0f42b60f4b2728cf8'
   SecurityGroupId:
     Type: String
     Description: >
       Optional - Specifies the Security Group Id of an existing Security
       Group. Leave blank to have a new Security Group created
-    Default: ''
+    Default: 'sg-0a999b9efb540d1dd'
   VpcCidr:
     Type: String
     Description: Optional - Specifies the CIDR Block of VPC
-    Default: ''
+    Default: '10.77.96.0/19'
   SubnetCidr1:
     Type: String
     Description: Specifies the CIDR Block of Subnet 1
-    Default: ''
+    Default: '10.77.96.0/23'
   SubnetCidr2:
     Type: String
     Description: Specifies the CIDR Block of Subnet 2
-    Default: ''
+    Default: '10.77.98.0/23'
   SubnetCidr3:
     Type: String
     Description: Specifies the CIDR Block of Subnet 3
-    Default: ''
+    Default: '10.77.100.0/23'
   AsgMaxSize:
     Type: Number
     Description: >
@@ -135,25 +135,11 @@ Parameters:
     Default: ''
 Conditions:
   LaunchInstances: !Equals [!Ref 'IsFargate', 'false']
-  CreateNewVpc:
-    !Equals [!Ref VpcId, '']
-  CreateSubnet1: !And
-    - !Not [!Equals [!Ref SubnetCidr1, '']]
-    - !Condition CreateNewVpc
-  CreateSubnet2: !And
-    - !Not [!Equals [!Ref SubnetCidr2, '']]
-    - !Condition CreateSubnet1
-  CreateSubnet3: !And
-    - !Not [!Equals [!Ref SubnetCidr3, '']]
-    - !Condition CreateSubnet2
   CreateEC2LCWithKeyPair: !And
     - !Not [!Equals [!Ref KeyName, '']]
     - !Condition LaunchInstances
   SetEndpointToECSAgent: !And
     - !Not [!Equals [!Ref EcsEndpoint, '']]
-    - !Condition LaunchInstances
-  CreateNewSecurityGroup: !And
-    - !Equals [!Ref SecurityGroupId, '']
     - !Condition LaunchInstances
   CreateEbsVolume: !And
     - !Not [!Equals [!Ref EbsVolumeSize, '0']]
@@ -161,93 +147,17 @@ Conditions:
     - !Not [!Equals [!Ref DeviceName, '']]
     - !Condition LaunchInstances
 Resources:
-  Vpc:
-    Condition: CreateSubnet1
-    Type: AWS::EC2::VPC
-    Properties:
-      CidrBlock: !Ref VpcCidr
-      EnableDnsSupport: 'true'
-      EnableDnsHostnames: 'true'
-  PubSubnetAz1:
-    Condition: CreateSubnet1
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref Vpc
-      CidrBlock: !Ref SubnetCidr1
-      AvailabilityZone: !Select [ 0, !Ref VpcAvailabilityZones ]
-      Tags:
-        -
-          Key: "Name"
-          Value: !Join [ "/", [ !Ref EcsClusterName , 'Public' ] ]
-  PubSubnetAz2:
-    Condition: CreateSubnet2
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref Vpc
-      CidrBlock: !Ref SubnetCidr2
-      AvailabilityZone: !Select [ 1, !Ref VpcAvailabilityZones ]
-      Tags:
-        -
-          Key: "Name"
-          Value: !Join [ "/", [ !Ref EcsClusterName , 'Public' ] ]
-
-  PubSubnetAz3:
-    Condition: CreateSubnet3
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref Vpc
-      CidrBlock: !Ref SubnetCidr3
-      AvailabilityZone: !Select [ 2, !Ref VpcAvailabilityZones ]
-      Tags:
-        -
-          Key: "Name"
-          Value: !Join [ "/", [ !Ref EcsClusterName , 'Public' ] ]
-  InternetGateway:
-    Condition: CreateSubnet1
-    Type: AWS::EC2::InternetGateway
-  AttachGateway:
-    Condition: CreateSubnet1
-    Type: AWS::EC2::VPCGatewayAttachment
-    Properties:
-      VpcId: !Ref Vpc
-      InternetGatewayId: !Ref InternetGateway
-  RouteViaIgw:
-    Condition: CreateSubnet1
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref Vpc
-  PublicRouteViaIgw:
-    Condition: CreateSubnet1
-    Type: AWS::EC2::Route
-    DependsOn: AttachGateway
-    Properties:
-      RouteTableId: !Ref RouteViaIgw
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
-  PubSubnet1RouteTableAssociation:
-    Condition: CreateSubnet1
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref PubSubnetAz1
-      RouteTableId: !Ref RouteViaIgw
-  PubSubnet2RouteTableAssociation:
-    Condition: CreateSubnet2
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref PubSubnetAz2
-      RouteTableId: !Ref RouteViaIgw
-  PubSubnet3RouteTableAssociation:
-    Condition: CreateSubnet3
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref PubSubnetAz3
-      RouteTableId: !Ref RouteViaIgw
+MyRepository: 
+  Type: AWS::ECR::Repository
+  Properties: 
+    RepositoryName: "springboot-repository"
+    ImageScanningConfiguration: 
+      ScanOnPush: "true"
   EcsSecurityGroup:
-    Condition: CreateNewSecurityGroup
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: ECS Allowed Ports
-      VpcId: !If [ CreateSubnet1, !Ref Vpc, !Ref VpcId ]
+      VpcId: !If [!Ref Vpc, !Ref VpcId ]
       SecurityGroupIngress:
         IpProtocol: tcp
         FromPort: !Ref SecurityIngressFromPort
@@ -262,10 +172,9 @@ Resources:
       AssociatePublicIpAddress: true
       IamInstanceProfile: !Ref IamRoleInstanceProfile
       KeyName: !If [ CreateEC2LCWithKeyPair, !Ref KeyName, !Ref "AWS::NoValue" ]
-      SecurityGroups: [ !If [ CreateNewSecurityGroup, !Ref EcsSecurityGroup, !Ref SecurityGroupId ] ]
+      SecurityGroups: [ !If [!Ref EcsSecurityGroup, !Ref SecurityGroupId ] ]
       BlockDeviceMappings: !If
         - CreateEbsVolume
-        -
           - DeviceName: !Ref DeviceName
             Ebs:
              VolumeSize: !Ref EbsVolumeSize
@@ -284,15 +193,7 @@ Resources:
     Condition: LaunchInstances
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      VPCZoneIdentifier: !If
-        - CreateSubnet1
-        - !If
-          - CreateSubnet2
-          - !If
-            - CreateSubnet3
-            - [ !Sub "${PubSubnetAz1}, ${PubSubnetAz2}, ${PubSubnetAz3}" ]
-            - [ !Sub "${PubSubnetAz1}, ${PubSubnetAz2}" ]
-          - [ !Sub "${PubSubnetAz1}" ]
+      VPCZoneIdentifier:
         - !Ref SubnetIds
       LaunchConfigurationName: !Ref EcsInstanceLc
       MinSize: '0'
